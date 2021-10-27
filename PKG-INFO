@@ -1,6 +1,6 @@
 Metadata-Version: 1.0
 Name: speedyxml
-Version: 0.3.3
+Version: 0.3.4
 Summary: Speedy XML parser for Python
 Home-page: UNKNOWN
 Author: kilroy
@@ -13,6 +13,7 @@ Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Text Processing :: Markup :: XML
 Classifier: License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)
