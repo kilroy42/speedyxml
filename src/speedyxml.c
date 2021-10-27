@@ -1,18 +1,5 @@
 #include "Python.h"
 
-#include "wchar.h"
-
-// Find the first occurrence of WC in WCS, if not found, return pointer to \0 byte at the end of the string
-wchar_t *my_wcschrnul (const wchar_t *wcs, const wchar_t wc)
-{
-	while (*wcs != L'\0')
-		if (*wcs == wc)
-			break;
-		else
-			++wcs;
-	return (wchar_t *)wcs;
-}
-
 struct module_state {
     PyObject *error;
 };
@@ -20,7 +7,7 @@ struct module_state {
 //#define COMPATIBLE
 //#define DEBUG_REF_CNTS
 #define JOINSTRINGS
-//#define JOINCDATA
+#define JOINCDATA
 
 #ifdef COMPATIBLE
 #define TUPLE_SIZE 4
@@ -134,7 +121,6 @@ char* wcs2utf8(const wchar_t *line, int c)
 #define FLAG_EXPANDEMPTY 1
 #define FLAG_RETURNCOMMENTS 2
 #define FLAG_RETURNPI 4
-#define FLAG_IGNOREENTITIES 8
 
 struct selfStruct {
 	PyObject	*self;
@@ -142,7 +128,6 @@ struct selfStruct {
 	int			expandEmpty;
 	int			returnComments;
 	int			returnPI;
-	int			ignoreEntities;
 };
 
 char *searchPosition(wchar_t *start, wchar_t *xml, int *x, int *y)
@@ -217,13 +202,12 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 	{
 		// until next tag, collect a text node
 		start = xml;
-		startb = my_wcschrnul(xml, L'>');
-		xml = my_wcschrnul(xml, L'<');
+		startb = wcschrnul(xml, L'>');
+		xml = wcschrnul(xml, L'<');
 
 		// this is only needed to be XML standard compatible. Other XML parsers accept ">" in a text node (e.g. Reportlab pyRXP)
-		// FIXED: ">" IS allowed in a text node (W3C)
-//		if (startb!=NULL && startb<xml)
-//			ERROROUT0("Found \">\" in a text node", startb)
+		if (startb!=NULL && startb<xml)
+			ERROROUT0("Found \">\" in a text node", startb)
 
 		// we have a text node, add it
 		if (xml != start)
@@ -233,25 +217,35 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 			if (children == NULL)
 				children = PyList_New(0);
 
-			if (wcsnchr(start, '&', len) == NULL || self->ignoreEntities == 1)
+			if (wcsnchr(start, '&', len) == NULL)
 			{
 				res2 = PyUnicode_FromWideChar(start, len);
 			}
 			else
 			{
-				wchar_t		*copy = malloc(len * sizeof(wchar_t));
-				wchar_t		*dst = copy;
-				int			todo = len;
+				wchar_t* copy = malloc(len * sizeof(wchar_t));
+				wchar_t* dst = copy;
+				int todo = len;
 
 				while (todo>0)
 				{
-					if (*start=='&' && self->ignoreEntities == 0)
+					if (*start=='&')
 					{
-						if      (todo>3 && wcsncmp(start+1, L"lt;",   3)==0) { *dst++ = '<'; start+= 4; todo-= 4; continue; }
-						else if (todo>3 && wcsncmp(start+1, L"gt;",   3)==0) { *dst++ = '>'; start+= 4; todo-= 4; continue; }
-						else if (todo>5 && wcsncmp(start+1, L"quot;", 5)==0) { *dst++ = '"'; start+= 6; todo-= 6; continue; }
-						else if (todo>4 && wcsncmp(start+1, L"amp;",  4)==0) { *dst++ = '&'; start+= 5; todo-= 5; continue; }
-						else if (todo>5 && wcsncmp(start+1, L"apos;", 5)==0) { *dst++ ='\''; start+= 6; todo-= 6; continue; }
+						if      (todo>3 && wcsncmp(start+1, L"lt;",   3)==0) {
+							*dst++ = '<'; start+= 4; todo-= 4; continue;
+						}
+						else if (todo>3 && wcsncmp(start+1, L"gt;",   3)==0) {
+							*dst++ = '>'; start+= 4; todo-= 4; continue;
+						}
+						else if (todo>5 && wcsncmp(start+1, L"quot;", 5)==0) {
+							*dst++ = '"'; start+= 6; todo-= 6; continue;
+						}
+						else if (todo>4 && wcsncmp(start+1, L"amp;",  4)==0) {
+							*dst++ = '&'; start+= 5; todo-= 5; continue;
+						}
+						else if (todo>5 && wcsncmp(start+1, L"apos;", 5)==0) {
+							*dst++ ='\''; start+= 6; todo-= 6; continue;
+						}
 						else if (todo>2 && *(start+1)==L'#')
 						{
 							// character reference entity
@@ -269,12 +263,17 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 								todo--;
 								while (*end && todo>0)
 								{
-									if      (*end>='0' && *end<='9') valuec = (valuec<<4) | (int)(*end-'0');
-									else if (*end>='a' && *end<='f') valuec = (valuec<<4) | (int)(*end-'a'+10);
-									else if (*end>='A' && *end<='F') valuec = (valuec<<4) | (int)(*end-'A'+10);
-									else break;
-									
-									end++; todo--;
+									if (*end>='0' && *end<='9')
+										valuec = (valuec<<4) | (int)(*end-'0');
+									else if (*end>='a' && *end<='f')
+										valuec = (valuec<<4) | (int)(*end-'a'+10);
+									else if (*end>='A' && *end<='F')
+										valuec = (valuec<<4) | (int)(*end-'A'+10);
+									else
+										break;
+
+									end++;
+									todo--;
 								}
 							}
 							else
@@ -283,20 +282,25 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 								while (*end && *end>='0' && *end<='9' && todo>0)
 								{
 									valuec = valuec * 10 + (int)(*end-'0');
-									end++; todo--;
+									end++;
+									todo--;
 								}
 							}
 
-							if (!*end || todo==0)			{ free(copy); ERROROUT0("XML ended while in open character reference entity", start); }
-							if (start==end || *end!=';')	{ free(copy); ERROROUT0("Invalid character reference entity", start); }
+							if (!*end || todo==0)
+								ERROROUT0("XML ended while in open character reference entity", start);
+
+							if (start==end || *end!=';')
+								ERROROUT0("Invalid character reference entity", start);
 
 							*dst++ = (wchar_t)valuec;
-							start = end+1; todo--;
+							start = end+1;
+							todo--;
 							continue;
 						}
 						else
 						{
-							free(copy); ERROROUT0("Unknown entity", start);
+							ERROROUT0("Unknown entity", start);
 						}
 					}
 					
@@ -419,7 +423,7 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 			xml++;
 			start = xml;
 			
-			while ((*xml>='a' && 'z'>=*xml) || (*xml>='A' && 'Z'>=*xml) || (start!=xml && ((*xml>='0' && *xml<='9') || *xml==':' || *xml=='_' || *xml=='-')))
+			while ((*xml>='a' && 'z'>=*xml) || (*xml>='A' && 'Z'>=*xml) || (start!=xml && ((*xml>='0' && *xml<='9') || *xml==':' || *xml=='_')))
 				xml++;
 
 			if (!*xml || xml==start)
@@ -469,7 +473,7 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 			// ok, obviously a new tag, so we will add a child
 			// parse tag name
 			start = xml;
-			while (*xml && ((*xml>='a' && *xml<='z') || (*xml>='A' && *xml<='Z') || (start!=xml && ((*xml>='0' && *xml<='9') || *xml==':' || *xml=='_' || *xml=='-'))))
+			while (*xml && ((*xml>='a' && *xml<='z') || (*xml>='A' && *xml<='Z') || (start!=xml && ((*xml>='0' && *xml<='9') || *xml==':' || *xml=='_'))))
 				xml++;
 
 			if (start == xml)
@@ -522,7 +526,7 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 				// consume attribute name
 				start = xml;
 				while (*xml++)
-					if (!((*xml>='a' && 'z'>=*xml) || (*xml>='A' && 'Z'>=*xml) || (start!=xml && ((*xml>='0' && *xml<='9') || *xml==':' || *xml=='_' || *xml=='-'))))
+					if (!((*xml>='a' && 'z'>=*xml) || (*xml>='A' && 'Z'>=*xml) || (start!=xml && ((*xml>='0' && *xml<='9') || *xml==':' || *xml=='_'))))
 						break;
 				len = (int)(xml-start);
 
@@ -533,24 +537,15 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 				if (len==0)
 					ERROROUT0("Expected attribute, found nothing", xml);
 
-				// consume white space
-				while (*xml==' ' || *xml=='\n' || *xml=='\r' || *xml=='\t')
-					xml++;
-
-				if (!*xml || (*xml++ != '='))
+				if (*xml++ != '=')
 					ERROROUT0("Expected attribute= but \"=\" was missing", xml-1);
 
-				// consume white space
-				while (*xml==' ' || *xml=='\n' || *xml=='\r' || *xml=='\t')
-					xml++;
-
-				if (!*xml || (*xml != '"' && *xml != '\''))
-					ERROROUT0("Expected attr=\" but found attr=", xml);
-				char endingChar = *xml++;
+				if (*xml++ != '"')
+					ERROROUT0("Expected attr=\" but found attr=", xml-1);
 
 				// get the value inside the "
 				startb = xml;
-				xml = my_wcschrnul(xml, endingChar);
+				xml = wcschrnul(xml, '"');
 				lenb = (int)(xml-startb);
 				
 				if (!*xml)
@@ -567,94 +562,8 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 				if (PyDict_Contains(attr, key))
 					ERROROUT1("Repeated attribute: %s", start, wcs2utf8(start, len));
 
-				// replace entities with values
-				if (wcsnchr(startb, '&', lenb) == NULL && wcsnchr(startb, '\n', lenb) == NULL && wcsnchr(startb, '\t', lenb) == NULL && wcsnchr(startb, '<', lenb) == NULL)
-				{
-					value = PyUnicode_FromWideChar(startb, lenb);
-				}
-				else
-				{
-					wchar_t		*copy = malloc(lenb * sizeof(wchar_t));
-					wchar_t		*dst = copy;
-					int			todo = lenb;
+				value = PyUnicode_FromWideChar(startb, lenb);
 
-					while (todo>0)
-					{
-						if (*startb=='&' && self->ignoreEntities==0)
-						{
-							if      (todo>3 && wcsncmp(startb+1, L"lt;",   3)==0) { *dst++ = '<'; startb+= 4; todo-= 4; continue; }
-							else if (todo>3 && wcsncmp(startb+1, L"gt;",   3)==0) { *dst++ = '>'; startb+= 4; todo-= 4; continue; }
-							else if (todo>5 && wcsncmp(startb+1, L"quot;", 5)==0) { *dst++ = '"'; startb+= 6; todo-= 6; continue; }
-							else if (todo>4 && wcsncmp(startb+1, L"amp;",  4)==0) { *dst++ = '&'; startb+= 5; todo-= 5; continue; }
-							else if (todo>5 && wcsncmp(startb+1, L"apos;", 5)==0) { *dst++ ='\''; startb+= 6; todo-= 6; continue; }
-							else if (todo>2 && *(startb+1)==L'#')
-							{
-								// character reference entity
-								startb+= 2;
-								todo-= 2;
-
-								unsigned int valuec = 0;
-									
-								end = startb;
-								if (*end=='x')
-								{
-									// &#xHHHH;
-									startb++;
-									end++;
-									todo--;
-									while (*end && todo>0)
-									{
-										if      (*end>='0' && *end<='9') valuec = (valuec<<4) | (int)(*end-'0');
-										else if (*end>='a' && *end<='f') valuec = (valuec<<4) | (int)(*end-'a'+10);
-										else if (*end>='A' && *end<='F') valuec = (valuec<<4) | (int)(*end-'A'+10);
-										else break;
-										
-										end++; todo--;
-									}
-								}
-								else
-								{
-									// &#DD;
-									while (*end && *end>='0' && *end<='9' && todo>0)
-									{
-										valuec = valuec * 10 + (int)(*end-'0');
-										end++; todo--;
-									}
-								}
-
-								if (!*end || todo==0)			{ free(copy); ERROROUT0("Attribute value ended while in open character reference entity", startb); }
-								if (startb==end || *end!=';')	{ free(copy); ERROROUT0("Invalid character reference entity", startb); }
-
-								*dst++ = (wchar_t)valuec;
-								startb = end+1; todo--;
-								continue;
-							}
-							else
-							{
-								free(copy); ERROROUT0("Unknown entity", startb);
-							}
-						}
-						
-						if (*startb==L'\n' || *startb==L'\t')
-						{
-							*dst++ = ' ';
-							*startb++;
-						}
-						else if (*startb==L'<') //  || *startb==L'>')  ">" is allowed (W3C)
-						{
-							ERROROUT0("Invalid character in attribute value", startb);
-						}
-						else
-						{
-							*dst++ = *startb++;
-						}
-						todo--;
-					}
-
-					value = PyUnicode_FromWideChar(copy, (int)(dst-copy));
-					free(copy);
-				}
-				
 				// set the attribute key: value
 				PyDict_SetItem(attr, key, value);
 
@@ -707,7 +616,7 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 				xml++;
 
 				start = xml;
-				while (*xml && ((*xml>='a' && *xml<='z') || (*xml>='A' && *xml<='Z') || (start!=xml && ((*xml>='0' && *xml<='9') || *xml==':' || *xml=='_' || *xml=='-'))))
+				while (*xml && ((*xml>='a' && *xml<='z') || (*xml>='A' && *xml<='Z') || (start!=xml && ((*xml>='0' && *xml<='9') || *xml==':' || *xml=='_'))))
 					xml++;
 				int len = (int)(xml-start);
 
@@ -823,7 +732,6 @@ static PyObject *parse(PyObject *self, PyObject *args)
 	sself.expandEmpty = (flags & FLAG_EXPANDEMPTY) ? 1 : 0;
 	sself.returnComments = (flags & FLAG_RETURNCOMMENTS) ? 1 : 0;
 	sself.returnPI = (flags & FLAG_RETURNPI) ? 1 : 0;
-	sself.ignoreEntities = (flags & FLAG_IGNOREENTITIES) ? 1 : 0;
 
 	wchar_t* start = xml;
 
@@ -944,7 +852,6 @@ void initspeedyxml(void)
 	PyDict_SetItemString(d, "FLAG_EXPANDEMPTY", PyLong_FromLong(FLAG_EXPANDEMPTY));
 	PyDict_SetItemString(d, "FLAG_RETURNCOMMENTS", PyLong_FromLong(FLAG_RETURNCOMMENTS));
 	PyDict_SetItemString(d, "FLAG_RETURNPI", PyLong_FromLong(FLAG_RETURNPI));
-	PyDict_SetItemString(d, "FLAG_IGNOREENTITIES", PyLong_FromLong(FLAG_IGNOREENTITIES));
 
 	PyDict_SetItemString(d, "TAG_COMMENT", PyUnicode_FromString("<!--"));
 	PyDict_SetItemString(d, "TAG_PI", PyUnicode_FromString("<?"));
