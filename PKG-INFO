@@ -1,0 +1,18 @@
+Metadata-Version: 1.0
+Name: speedyxml
+Version: 0.1
+Summary: Speedy XML parser for Python
+Home-page: UNKNOWN
+Author: kilroy
+Author-email: kilroy@uni-koblenz.de
+License: LGPL
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Operating System :: POSIX
+Classifier: Programming Language :: Python
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Text Processing :: Markup :: XML
+Classifier: License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)
