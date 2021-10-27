@@ -7,7 +7,7 @@ struct module_state {
 //#define COMPATIBLE
 //#define DEBUG_REF_CNTS
 #define JOINSTRINGS
-#define JOINCDATA
+//#define JOINCDATA
 
 #ifdef COMPATIBLE
 #define TUPLE_SIZE 4
@@ -544,7 +544,7 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 					ERROROUT1("Repeated attribute: %s", start, wcs2utf8(start, len));
 
 				// replace entities with values
-				if (wcsnchr(startb, '&', lenb) == NULL)
+				if (wcsnchr(startb, '&', lenb) == NULL && wcsnchr(startb, '\n', lenb) == NULL && wcsnchr(startb, '\t', lenb) == NULL)
 				{
 					value = PyUnicode_FromWideChar(startb, lenb);
 				}
@@ -611,7 +611,15 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 							}
 						}
 						
-						*dst++ = *startb++;
+						if (*startb==L'\n' || *startb==L'\t')
+						{
+							*dst++ = ' ';
+							*startb++;
+						}
+						else
+						{
+							*dst++ = *startb++;
+						}
 						todo--;
 					}
 

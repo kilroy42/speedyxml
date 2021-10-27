@@ -26,7 +26,8 @@ def writeResults(fns):
 class Test(unittest.TestCase):
 
 	def test_all(self):
-		for ffn in sorted(glob.glob('*.test')):
+		for ffn in sorted(glob.glob('tests/*.test')):
+			print('Running %s' % (ffn,))
 			(path, fn) = os.path.split(ffn)
 			resultFn = os.path.join(path, fn.rsplit('.', 1)[0]) + '.result'
 
@@ -49,7 +50,6 @@ def suite():
 	return alltests
 
 if __name__=='__main__':
-
 	if 'write' in sys.argv[1:]:
 		writeResults(sys.argv[2:])
 	else:
