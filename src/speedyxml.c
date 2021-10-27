@@ -544,7 +544,7 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 					ERROROUT1("Repeated attribute: %s", start, wcs2utf8(start, len));
 
 				// replace entities with values
-				if (wcsnchr(startb, '&', lenb) == NULL && wcsnchr(startb, '\n', lenb) == NULL && wcsnchr(startb, '\t', lenb) == NULL)
+				if (wcsnchr(startb, '&', lenb) == NULL && wcsnchr(startb, '\n', lenb) == NULL && wcsnchr(startb, '\t', lenb) == NULL && wcsnchr(startb, '<', lenb) == NULL && wcsnchr(startb, '>', lenb) == NULL)
 				{
 					value = PyUnicode_FromWideChar(startb, lenb);
 				}
@@ -615,6 +615,10 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 						{
 							*dst++ = ' ';
 							*startb++;
+						}
+						else if (*startb==L'<' || *startb==L'>')
+						{
+							ERROROUT0("Invalid character in attribute value", startb);
 						}
 						else
 						{

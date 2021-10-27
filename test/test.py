@@ -26,7 +26,7 @@ def writeResults(fns):
 class Test(unittest.TestCase):
 
 	def test_all(self):
-		for ffn in sorted(glob.glob('tests/*.test')):
+		for ffn in sorted(glob.glob('test/*.test')):
 			print('Running %s' % (ffn,))
 			(path, fn) = os.path.split(ffn)
 			resultFn = os.path.join(path, fn.rsplit('.', 1)[0]) + '.result'
