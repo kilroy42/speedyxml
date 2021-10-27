@@ -1,5 +1,18 @@
 #include "Python.h"
 
+#include "wchar.h"
+
+// Find the first occurrence of WC in WCS, if not found, return pointer to \0 byte at the end of the string
+wchar_t *my_wcschrnul (const wchar_t *wcs, const wchar_t wc)
+{
+	while (*wcs != L'\0')
+		if (*wcs == wc)
+			break;
+		else
+			++wcs;
+	return (wchar_t *)wcs;
+}
+
 struct module_state {
     PyObject *error;
 };
@@ -204,8 +217,8 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 	{
 		// until next tag, collect a text node
 		start = xml;
-		startb = wcschrnul(xml, L'>');
-		xml = wcschrnul(xml, L'<');
+		startb = my_wcschrnul(xml, L'>');
+		xml = my_wcschrnul(xml, L'<');
 
 		// this is only needed to be XML standard compatible. Other XML parsers accept ">" in a text node (e.g. Reportlab pyRXP)
 		// FIXED: ">" IS allowed in a text node (W3C)
@@ -537,7 +550,7 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 
 				// get the value inside the "
 				startb = xml;
-				xml = wcschrnul(xml, endingChar);
+				xml = my_wcschrnul(xml, endingChar);
 				lenb = (int)(xml-startb);
 				
 				if (!*xml)
