@@ -406,7 +406,7 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 			xml++;
 			start = xml;
 			
-			while ((*xml>='a' && 'z'>=*xml) || (*xml>='A' && 'Z'>=*xml) || (start!=xml && ((*xml>='0' && *xml<='9') || *xml==':' || *xml=='_')))
+			while ((*xml>='a' && 'z'>=*xml) || (*xml>='A' && 'Z'>=*xml) || (start!=xml && ((*xml>='0' && *xml<='9') || *xml==':' || *xml=='_' || *xml=='-')))
 				xml++;
 
 			if (!*xml || xml==start)
@@ -456,7 +456,7 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 			// ok, obviously a new tag, so we will add a child
 			// parse tag name
 			start = xml;
-			while (*xml && ((*xml>='a' && *xml<='z') || (*xml>='A' && *xml<='Z') || (start!=xml && ((*xml>='0' && *xml<='9') || *xml==':' || *xml=='_'))))
+			while (*xml && ((*xml>='a' && *xml<='z') || (*xml>='A' && *xml<='Z') || (start!=xml && ((*xml>='0' && *xml<='9') || *xml==':' || *xml=='_' || *xml=='-'))))
 				xml++;
 
 			if (start == xml)
@@ -509,7 +509,7 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 				// consume attribute name
 				start = xml;
 				while (*xml++)
-					if (!((*xml>='a' && 'z'>=*xml) || (*xml>='A' && 'Z'>=*xml) || (start!=xml && ((*xml>='0' && *xml<='9') || *xml==':' || *xml=='_'))))
+					if (!((*xml>='a' && 'z'>=*xml) || (*xml>='A' && 'Z'>=*xml) || (start!=xml && ((*xml>='0' && *xml<='9') || *xml==':' || *xml=='_' || *xml=='-'))))
 						break;
 				len = (int)(xml-start);
 
@@ -694,7 +694,7 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 				xml++;
 
 				start = xml;
-				while (*xml && ((*xml>='a' && *xml<='z') || (*xml>='A' && *xml<='Z') || (start!=xml && ((*xml>='0' && *xml<='9') || *xml==':' || *xml=='_'))))
+				while (*xml && ((*xml>='a' && *xml<='z') || (*xml>='A' && *xml<='Z') || (start!=xml && ((*xml>='0' && *xml<='9') || *xml==':' || *xml=='_' || *xml=='-'))))
 					xml++;
 				int len = (int)(xml-start);
 
