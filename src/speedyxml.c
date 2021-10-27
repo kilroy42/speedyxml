@@ -517,10 +517,18 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 				if (len==0)
 					ERROROUT0("Expected attribute, found nothing", xml);
 
-				if (*xml++ != '=')
+				// consume white space
+				while (*xml==' ' || *xml=='\n' || *xml=='\r' || *xml=='\t')
+					xml++;
+
+				if (!*xml || (*xml++ != '='))
 					ERROROUT0("Expected attribute= but \"=\" was missing", xml-1);
 
-				if (*xml != '"' && *xml != '\'')
+				// consume white space
+				while (*xml==' ' || *xml=='\n' || *xml=='\r' || *xml=='\t')
+					xml++;
+
+				if (!*xml || (*xml != '"' && *xml != '\''))
 					ERROROUT0("Expected attr=\" but found attr=", xml);
 				char endingChar = *xml++;
 
@@ -544,7 +552,7 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 					ERROROUT1("Repeated attribute: %s", start, wcs2utf8(start, len));
 
 				// replace entities with values
-				if (wcsnchr(startb, '&', lenb) == NULL && wcsnchr(startb, '\n', lenb) == NULL && wcsnchr(startb, '\t', lenb) == NULL && wcsnchr(startb, '<', lenb) == NULL && wcsnchr(startb, '>', lenb) == NULL)
+				if (wcsnchr(startb, '&', lenb) == NULL && wcsnchr(startb, '\n', lenb) == NULL && wcsnchr(startb, '\t', lenb) == NULL && wcsnchr(startb, '<', lenb) == NULL)
 				{
 					value = PyUnicode_FromWideChar(startb, lenb);
 				}
@@ -616,7 +624,7 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 							*dst++ = ' ';
 							*startb++;
 						}
-						else if (*startb==L'<' || *startb==L'>')
+						else if (*startb==L'<') //  || *startb==L'>')  ">" is allowed (W3C)
 						{
 							ERROROUT0("Invalid character in attribute value", startb);
 						}
