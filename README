@@ -39,6 +39,10 @@ Plus some options (second argument to parse)
 
 		(TAG_PI, {u'name': u'php'}, u'phpinfo();')
 
+	FLAG_IGNOREENTITIES
+		
+		does not resolve entities when set
+
 And one exception:
 
 	XMLParseException

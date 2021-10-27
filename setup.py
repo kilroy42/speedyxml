@@ -9,7 +9,7 @@ from distutils.core import Extension
 
 setup(
 	name				=	'speedyxml',
-	version				=	'0.3.5',
+	version				=	'0.3.6',
 	description			=	'Speedy XML parser for Python',
 	author				=	'kilroy',
 	author_email		=	'kilroy@uni-koblenz.de',
@@ -25,6 +25,7 @@ setup(
 		'Natural Language :: English',
 		'Operating System :: POSIX',
 		'Programming Language :: Python',
+		'Programming Language :: Python :: 2',
 		'Programming Language :: Python :: 3',
 		'Topic :: Software Development :: Libraries :: Python Modules',
 		'Topic :: Text Processing :: Markup :: XML',

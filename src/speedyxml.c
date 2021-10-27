@@ -121,6 +121,7 @@ char* wcs2utf8(const wchar_t *line, int c)
 #define FLAG_EXPANDEMPTY 1
 #define FLAG_RETURNCOMMENTS 2
 #define FLAG_RETURNPI 4
+#define FLAG_IGNOREENTITIES 8
 
 struct selfStruct {
 	PyObject	*self;
@@ -128,6 +129,7 @@ struct selfStruct {
 	int			expandEmpty;
 	int			returnComments;
 	int			returnPI;
+	int			ignoreEntities;
 };
 
 char *searchPosition(wchar_t *start, wchar_t *xml, int *x, int *y)
@@ -217,7 +219,7 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 			if (children == NULL)
 				children = PyList_New(0);
 
-			if (wcsnchr(start, '&', len) == NULL)
+			if (wcsnchr(start, '&', len) == NULL || self->ignoreEntities == 1)
 			{
 				res2 = PyUnicode_FromWideChar(start, len);
 			}
@@ -229,7 +231,7 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 
 				while (todo>0)
 				{
-					if (*start=='&')
+					if (*start=='&' && self->ignoreEntities == 0)
 					{
 						if      (todo>3 && wcsncmp(start+1, L"lt;",   3)==0) { *dst++ = '<'; start+= 4; todo-= 4; continue; }
 						else if (todo>3 && wcsncmp(start+1, L"gt;",   3)==0) { *dst++ = '>'; start+= 4; todo-= 4; continue; }
@@ -564,7 +566,7 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 
 					while (todo>0)
 					{
-						if (*startb=='&')
+						if (*startb=='&' && self->ignoreEntities==0)
 						{
 							if      (todo>3 && wcsncmp(startb+1, L"lt;",   3)==0) { *dst++ = '<'; startb+= 4; todo-= 4; continue; }
 							else if (todo>3 && wcsncmp(startb+1, L"gt;",   3)==0) { *dst++ = '>'; startb+= 4; todo-= 4; continue; }
@@ -807,6 +809,7 @@ static PyObject *parse(PyObject *self, PyObject *args)
 	sself.expandEmpty = (flags & FLAG_EXPANDEMPTY) ? 1 : 0;
 	sself.returnComments = (flags & FLAG_RETURNCOMMENTS) ? 1 : 0;
 	sself.returnPI = (flags & FLAG_RETURNPI) ? 1 : 0;
+	sself.ignoreEntities = (flags & FLAG_IGNOREENTITIES) ? 1 : 0;
 
 	wchar_t* start = xml;
 
@@ -927,6 +930,7 @@ void initspeedyxml(void)
 	PyDict_SetItemString(d, "FLAG_EXPANDEMPTY", PyLong_FromLong(FLAG_EXPANDEMPTY));
 	PyDict_SetItemString(d, "FLAG_RETURNCOMMENTS", PyLong_FromLong(FLAG_RETURNCOMMENTS));
 	PyDict_SetItemString(d, "FLAG_RETURNPI", PyLong_FromLong(FLAG_RETURNPI));
+	PyDict_SetItemString(d, "FLAG_IGNOREENTITIES", PyLong_FromLong(FLAG_IGNOREENTITIES));
 
 	PyDict_SetItemString(d, "TAG_COMMENT", PyUnicode_FromString("<!--"));
 	PyDict_SetItemString(d, "TAG_PI", PyUnicode_FromString("<?"));
