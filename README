@@ -37,7 +37,11 @@ Plus some options (second argument to parse)
 
 		Returns processing instructions as:
 
-		(TAG_PI', {u'name': u'php'}, u'phpinfo();')
+		(TAG_PI, {u'name': u'php'}, u'phpinfo();')
+
+	FLAG_IGNOREENTITIES
+		
+		does not resolve entities when set
 
 And one exception:
 

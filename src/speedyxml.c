@@ -1,5 +1,7 @@
 #include "Python.h"
 
+#include "wchar.h"
+
 struct module_state {
     PyObject *error;
 };
@@ -7,7 +9,7 @@ struct module_state {
 //#define COMPATIBLE
 //#define DEBUG_REF_CNTS
 #define JOINSTRINGS
-#define JOINCDATA
+//#define JOINCDATA
 
 #ifdef COMPATIBLE
 #define TUPLE_SIZE 4
@@ -15,12 +17,7 @@ struct module_state {
 #define TUPLE_SIZE 3
 #endif
 
-#if PY_MAJOR_VERSION >= 3
 #define GETSTATE(m) ((struct module_state*)PyModule_GetState(m))
-#else
-#define GETSTATE(m) (&_state)
-static struct module_state _state;
-#endif
 
 #define ERROROUT0(S, POS)\
 {\
@@ -59,38 +56,37 @@ static struct module_state _state;
 	Py_XDECREF(res); return NULL;\
 }
 
-#define WCHAR2UTF8(line, output)\
+#define emitUnicode(POS, code, output)\
 {\
-	if (*line < 0x0080)\
+	if (code < 0x0080)\
 	{\
-		*output++ = (unsigned char)*line;\
+		*output++ = (unsigned char)code;\
 	}\
-	else if (*line < 0x0800)\
+	else if (code < 0x0800)\
 	{\
-		*output++ = 0xc0 | (*line >> 6);\
-		*output++ = 0x80 | (*line & 0x3f);\
+		*output++ = 0xc0 | (code >> 6);\
+		*output++ = 0x80 | (code & 0x3f);\
 	}\
-	else if (*line >= 0xd800 && *line <= 0xdfff)\
+	else if (code >= 0xd800 && code <= 0xdfff)\
 	{\
+		ERROROUT0("Found invalid unicode code point", POS);\
 	}\
-	else if (*line < 0x10000)\
+	else if (code < 0x10000)\
 	{\
-		*output++ = 0xe0 |  (*line >> 12);\
-		*output++ = 0x80 | ((*line >> 6 ) & 0x3f );\
-		*output++ = 0x80 |  (*line        & 0x3f );\
+		*output++ = 0xe0 |  (code >> 12);\
+		*output++ = 0x80 | ((code >> 6 ) & 0x3f );\
+		*output++ = 0x80 |  (code        & 0x3f );\
 	}\
-	else if (*line < 0x110000)\
+	else if (code < 0x110000)\
 	{\
-		*output++ = 0xf0 |  (*line >> 18);\
-		*output++ = 0x80 | ((*line >> 12) & 0x3f);\
-		*output++ = 0x80 | ((*line >>  6) & 0x3f);\
-		*output++ = 0x80 | (*line         & 0x3f);\
+		*output++ = 0xf0 |  (code >> 18);\
+		*output++ = 0x80 | ((code >> 12) & 0x3f);\
+		*output++ = 0x80 | ((code >>  6) & 0x3f);\
+		*output++ = 0x80 | (code         & 0x3f);\
 	}\
-	line++;\
 }
 
-#ifndef wcsnchr 
-wchar_t *wcsnchr(wchar_t *in, wchar_t ch, int n)
+char *my_strnchr(char *in, char ch, int n)
 {
 	while (n-->0 && *in && *in!=ch)
 		in++;
@@ -100,39 +96,24 @@ wchar_t *wcsnchr(wchar_t *in, wchar_t ch, int n)
 
 	return in;
 }
-#endif
-
-char* wcs2utf8(const wchar_t *line, int c)
-{
-	char *res = malloc( sizeof(wchar_t)*(c+1) );
-	char *output = res;
-	if (!res)
-		return NULL;
-
-	while (c-- && *line)
-		WCHAR2UTF8(line, output);
-	*output = 0;
-
-	//res = realloc(res, (int)(output-res)+1); // works, but unneeded since the strings are ultra small and only for error messages and freed immediately after it
-
-	return res; 
-}
 
 #define FLAG_EXPANDEMPTY 1
 #define FLAG_RETURNCOMMENTS 2
 #define FLAG_RETURNPI 4
+#define FLAG_IGNOREENTITIES 8
 
 struct selfStruct {
 	PyObject	*self;
-	wchar_t		*start;
+	char		*start;
 	int			expandEmpty;
 	int			returnComments;
 	int			returnPI;
+	int			ignoreEntities;
 };
 
-char *searchPosition(wchar_t *start, wchar_t *xml, int *x, int *y)
+char *searchPosition(char *start, char *xml, int *x, int *y)
 {
-	wchar_t *line = start;
+	char *line = start;
 
 	*x = 1;
 	*y = 1;
@@ -159,17 +140,17 @@ char *searchPosition(wchar_t *start, wchar_t *xml, int *x, int *y)
 		start++;
 	}
 
-	wchar_t* end = line;
+	char* end = line;
 	while (*end && *end!='\r' && *end!='\n')
 		end++;
 	int len = (int)(end-line);
 	
 	// make it big enough for worst case (32bit utf8)
-	char *output = malloc((len + 1 + *x + 1) * sizeof(wchar_t));
+	char *output = malloc((len + 1 + *x + 1) * sizeof(char));
 	char *res = output;
 	
 	while (len--)
-		WCHAR2UTF8(line, output);
+		*output++ = *line++;
 	*output++ = '\n';
 
 	memset(output, ' ', (*x-1)); output+= *x-1;
@@ -179,7 +160,7 @@ char *searchPosition(wchar_t *start, wchar_t *xml, int *x, int *y)
 	return res;
 }
 
-wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int depth)
+char *parse_recurse(struct selfStruct *self, char *xml, PyObject *res, int depth)
 {
 	PyObject *children = NULL;
 	PyObject *key = NULL;
@@ -187,10 +168,10 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 	PyObject *res2 = NULL;
 	PyObject *attr = NULL;
 
-	wchar_t *start = NULL;
-	wchar_t *startb = NULL;
-	wchar_t *tag = NULL;
-	wchar_t *end = NULL;
+	char *start = NULL;
+	char *startb = NULL;
+	char *tag = NULL;
+	char *end = NULL;
 
 	int len = 0;
 	int lenb = 0;
@@ -202,12 +183,13 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 	{
 		// until next tag, collect a text node
 		start = xml;
-		startb = wcschrnul(xml, L'>');
-		xml = wcschrnul(xml, L'<');
+		startb = strchrnul(xml, L'>');
+		xml = strchrnul(xml, L'<');
 
 		// this is only needed to be XML standard compatible. Other XML parsers accept ">" in a text node (e.g. Reportlab pyRXP)
-		if (startb!=NULL && startb<xml)
-			ERROROUT0("Found \">\" in a text node", startb)
+		// FIXED: ">" IS allowed in a text node (W3C)
+//		if (startb!=NULL && startb<xml)
+//			ERROROUT0("Found \">\" in a text node", startb)
 
 		// we have a text node, add it
 		if (xml != start)
@@ -217,35 +199,25 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 			if (children == NULL)
 				children = PyList_New(0);
 
-			if (wcsnchr(start, '&', len) == NULL)
+			if (my_strnchr(start, '&', len) == NULL || self->ignoreEntities == 1)
 			{
-				res2 = PyUnicode_FromWideChar(start, len);
+				res2 = PyUnicode_FromStringAndSize(start, len);
 			}
 			else
 			{
-				wchar_t* copy = malloc(len * sizeof(wchar_t));
-				wchar_t* dst = copy;
-				int todo = len;
+				char		*copy = malloc(len * sizeof(char));
+				char		*dst = copy;
+				int			todo = len;
 
 				while (todo>0)
 				{
-					if (*start=='&')
+					if (*start=='&' && self->ignoreEntities == 0)
 					{
-						if      (todo>3 && wcsncmp(start+1, L"lt;",   3)==0) {
-							*dst++ = '<'; start+= 4; todo-= 4; continue;
-						}
-						else if (todo>3 && wcsncmp(start+1, L"gt;",   3)==0) {
-							*dst++ = '>'; start+= 4; todo-= 4; continue;
-						}
-						else if (todo>5 && wcsncmp(start+1, L"quot;", 5)==0) {
-							*dst++ = '"'; start+= 6; todo-= 6; continue;
-						}
-						else if (todo>4 && wcsncmp(start+1, L"amp;",  4)==0) {
-							*dst++ = '&'; start+= 5; todo-= 5; continue;
-						}
-						else if (todo>5 && wcsncmp(start+1, L"apos;", 5)==0) {
-							*dst++ ='\''; start+= 6; todo-= 6; continue;
-						}
+						if      (todo>3 && strncmp(start+1, "lt;",   3)==0) { *dst++ = '<'; start+= 4; todo-= 4; continue; }
+						else if (todo>3 && strncmp(start+1, "gt;",   3)==0) { *dst++ = '>'; start+= 4; todo-= 4; continue; }
+						else if (todo>5 && strncmp(start+1, "quot;", 5)==0) { *dst++ = '"'; start+= 6; todo-= 6; continue; }
+						else if (todo>4 && strncmp(start+1, "amp;",  4)==0) { *dst++ = '&'; start+= 5; todo-= 5; continue; }
+						else if (todo>5 && strncmp(start+1, "apos;", 5)==0) { *dst++ ='\''; start+= 6; todo-= 6; continue; }
 						else if (todo>2 && *(start+1)==L'#')
 						{
 							// character reference entity
@@ -263,17 +235,12 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 								todo--;
 								while (*end && todo>0)
 								{
-									if (*end>='0' && *end<='9')
-										valuec = (valuec<<4) | (int)(*end-'0');
-									else if (*end>='a' && *end<='f')
-										valuec = (valuec<<4) | (int)(*end-'a'+10);
-									else if (*end>='A' && *end<='F')
-										valuec = (valuec<<4) | (int)(*end-'A'+10);
-									else
-										break;
-
-									end++;
-									todo--;
+									if      (*end>='0' && *end<='9') valuec = (valuec<<4) | (int)(*end-'0');
+									else if (*end>='a' && *end<='f') valuec = (valuec<<4) | (int)(*end-'a'+10);
+									else if (*end>='A' && *end<='F') valuec = (valuec<<4) | (int)(*end-'A'+10);
+									else break;
+									
+									end++; todo--;
 								}
 							}
 							else
@@ -282,25 +249,20 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 								while (*end && *end>='0' && *end<='9' && todo>0)
 								{
 									valuec = valuec * 10 + (int)(*end-'0');
-									end++;
-									todo--;
+									end++; todo--;
 								}
 							}
 
-							if (!*end || todo==0)
-								ERROROUT0("XML ended while in open character reference entity", start);
+							if (!*end || todo==0)			{ free(copy); ERROROUT0("XML ended while in open character reference entity", start); }
+							if (start==end || *end!=';')	{ free(copy); ERROROUT0("Invalid character reference entity", start); }
 
-							if (start==end || *end!=';')
-								ERROROUT0("Invalid character reference entity", start);
-
-							*dst++ = (wchar_t)valuec;
-							start = end+1;
-							todo--;
+							emitUnicode(start, valuec, dst);
+							start = end+1; todo--;
 							continue;
 						}
 						else
 						{
-							ERROROUT0("Unknown entity", start);
+							free(copy); ERROROUT0("Unknown entity", start);
 						}
 					}
 					
@@ -308,7 +270,7 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 					todo--;
 				}
 
-				res2 = PyUnicode_FromWideChar(copy, (int)(dst-copy));
+				res2 = PyUnicode_FromStringAndSize(copy, (int)(dst-copy));
 				free(copy);
 			}
 
@@ -347,11 +309,11 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 			xml--;
 			break;
 		}
-		else if (wcsncmp(xml, L"!--", 3)==0)
+		else if (strncmp(xml, "!--", 3)==0)
 		{
 			// skip comment
 			start = xml - 1;
-			xml = wcsstr(xml+3, L"--");
+			xml = strstr(xml+3, "--");
 
 			if (!xml)
 				ERROROUT0("XML ended in the middle of a comment, start of comment was here", start);
@@ -369,7 +331,7 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 
 				Py_INCREF(Py_None);
 				PyTuple_SetItem(res2, 1, Py_None);
-				PyTuple_SetItem(res2, 2, PyUnicode_FromWideChar(start+4, (int)(xml-start)-4));
+				PyTuple_SetItem(res2, 2, PyUnicode_FromStringAndSize(start+4, (int)(xml-start)-4));
 #ifdef COMPATIBLE	
 				Py_INCREF(Py_None);
 				PyTuple_SetItem(res2, 3, Py_None);
@@ -384,14 +346,14 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 
 			xml+= 3;
 		}
-		else if (wcsncmp(xml, L"![CDATA[", 8)==0)
+		else if (strncmp(xml, "![CDATA[", 8)==0)
 		{
 			start = xml-1;
-			xml = wcsstr(xml+8, L"]]>");
+			xml = strstr(xml+8, "]]>");
 			if (!xml)
 				ERROROUT0("XML ended in the middle of CDATA, start of CDATA was here", start);
 
-			res2 = PyUnicode_FromWideChar(start+8+1, (int)(xml-start-8-1));
+			res2 = PyUnicode_FromStringAndSize(start+8+1, (int)(xml-start-8-1));
 
 			if (children == NULL)
 				children = PyList_New(0);
@@ -423,7 +385,7 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 			xml++;
 			start = xml;
 			
-			while ((*xml>='a' && 'z'>=*xml) || (*xml>='A' && 'Z'>=*xml) || (start!=xml && ((*xml>='0' && *xml<='9') || *xml==':' || *xml=='_')))
+			while ((*xml>='a' && 'z'>=*xml) || (*xml>='A' && 'Z'>=*xml) || (start!=xml && ((*xml>='0' && *xml<='9') || *xml==':' || *xml=='_' || *xml=='-')))
 				xml++;
 
 			if (!*xml || xml==start)
@@ -431,7 +393,7 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 
 			lentag = xml-start;
 			
-			xml = wcsstr(xml, L"?>");
+			xml = strstr(xml, "?>");
 			if (!xml)
 				ERROROUT0("<? found but no ?> found, starting tag was here", start);
 			
@@ -443,13 +405,13 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 
 				PyObject* res3 = PyDict_New();
 				PyObject *tmp = PyUnicode_FromString("name");
-				PyObject *tmp2 = PyUnicode_FromWideChar(start, lentag);
+				PyObject *tmp2 = PyUnicode_FromStringAndSize(start, lentag);
 				PyDict_SetItem(res3, tmp, tmp2);
 				Py_DECREF(tmp); Py_DECREF(tmp2);
 				PyTuple_SetItem(res2, 1, res3);
 
 				if ((int)(xml-start) - lentag>1)
-					PyTuple_SetItem(res2, 2, PyUnicode_FromWideChar(start+lentag+1, (int)(xml-start) - lentag-1));
+					PyTuple_SetItem(res2, 2, PyUnicode_FromStringAndSize(start+lentag+1, (int)(xml-start) - lentag-1));
 				else
 					PyTuple_SetItem(res2, 2, PyUnicode_FromString(""));
 #ifdef COMPATIBLE
@@ -473,7 +435,7 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 			// ok, obviously a new tag, so we will add a child
 			// parse tag name
 			start = xml;
-			while (*xml && ((*xml>='a' && *xml<='z') || (*xml>='A' && *xml<='Z') || (start!=xml && ((*xml>='0' && *xml<='9') || *xml==':' || *xml=='_'))))
+			while (*xml && ((*xml>='a' && *xml<='z') || (*xml>='A' && *xml<='Z') || (start!=xml && ((*xml>='0' && *xml<='9') || *xml==':' || *xml=='_' || *xml=='-'))))
 				xml++;
 
 			if (start == xml)
@@ -491,12 +453,12 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 			while (1)
 			{
 				// consume spaces
-				wchar_t *beforeSpaces = xml;
+				char *beforeSpaces = xml;
 				while (*xml==' ' || *xml=='\n' || *xml=='\r' || *xml=='\t')
 					xml++;
 
 				if (!*xml)
-					ERROROUT1("End of XML and we are still inside a tag declaration. Last open tag was \"%s\"", xml, wcs2utf8(tag, lentag));
+					ERROROUT1("End of XML and we are still inside a tag declaration. Last open tag was \"%s\"", xml, strndup(tag, lentag));
 
 				// tag is closing, content coming?
 				if (*xml=='>')
@@ -526,7 +488,7 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 				// consume attribute name
 				start = xml;
 				while (*xml++)
-					if (!((*xml>='a' && 'z'>=*xml) || (*xml>='A' && 'Z'>=*xml) || (start!=xml && ((*xml>='0' && *xml<='9') || *xml==':' || *xml=='_'))))
+					if (!((*xml>='a' && 'z'>=*xml) || (*xml>='A' && 'Z'>=*xml) || (start!=xml && ((*xml>='0' && *xml<='9') || *xml==':' || *xml=='_' || *xml=='-'))))
 						break;
 				len = (int)(xml-start);
 
@@ -537,15 +499,24 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 				if (len==0)
 					ERROROUT0("Expected attribute, found nothing", xml);
 
-				if (*xml++ != '=')
+				// consume white space
+				while (*xml==' ' || *xml=='\n' || *xml=='\r' || *xml=='\t')
+					xml++;
+
+				if (!*xml || (*xml++ != '='))
 					ERROROUT0("Expected attribute= but \"=\" was missing", xml-1);
 
-				if (*xml++ != '"')
-					ERROROUT0("Expected attr=\" but found attr=", xml-1);
+				// consume white space
+				while (*xml==' ' || *xml=='\n' || *xml=='\r' || *xml=='\t')
+					xml++;
+
+				if (!*xml || (*xml != '"' && *xml != '\''))
+					ERROROUT0("Expected attr=\" but found attr=", xml);
+				char endingChar = *xml++;
 
 				// get the value inside the "
 				startb = xml;
-				xml = wcschrnul(xml, '"');
+				xml = strchrnul(xml, endingChar);
 				lenb = (int)(xml-startb);
 				
 				if (!*xml)
@@ -556,14 +527,100 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 				if (attr == NULL)
 					attr = PyDict_New();
 				
-				key = PyUnicode_FromWideChar(start, len);
+				key = PyUnicode_FromStringAndSize(start, len);
 
 				// dupe check
 				if (PyDict_Contains(attr, key))
-					ERROROUT1("Repeated attribute: %s", start, wcs2utf8(start, len));
+					ERROROUT1("Repeated attribute: %s", start, strndup(start, len));
 
-				value = PyUnicode_FromWideChar(startb, lenb);
+				// replace entities with values
+				if (my_strnchr(startb, '&', lenb) == NULL && my_strnchr(startb, '\n', lenb) == NULL && my_strnchr(startb, '\t', lenb) == NULL && my_strnchr(startb, '<', lenb) == NULL)
+				{
+					value = PyUnicode_FromStringAndSize(startb, lenb);
+				}
+				else
+				{
+					char		*copy = malloc(lenb * 4);
+					char		*dst = copy;
+					int			todo = lenb;
 
+					while (todo>0)
+					{
+						if (*startb=='&' && self->ignoreEntities==0)
+						{
+							if      (todo>3 && strncmp(startb+1, "lt;",   3)==0) { *dst++ = '<'; startb+= 4; todo-= 4; continue; }
+							else if (todo>3 && strncmp(startb+1, "gt;",   3)==0) { *dst++ = '>'; startb+= 4; todo-= 4; continue; }
+							else if (todo>5 && strncmp(startb+1, "quot;", 5)==0) { *dst++ = '"'; startb+= 6; todo-= 6; continue; }
+							else if (todo>4 && strncmp(startb+1, "amp;",  4)==0) { *dst++ = '&'; startb+= 5; todo-= 5; continue; }
+							else if (todo>5 && strncmp(startb+1, "apos;", 5)==0) { *dst++ ='\''; startb+= 6; todo-= 6; continue; }
+							else if (todo>2 && *(startb+1)==L'#')
+							{
+								// character reference entity
+								startb+= 2;
+								todo-= 2;
+
+								unsigned int valuec = 0;
+									
+								end = startb;
+								if (*end=='x')
+								{
+									// &#xHHHH;
+									startb++;
+									end++;
+									todo--;
+									while (*end && todo>0)
+									{
+										if      (*end>='0' && *end<='9') valuec = (valuec<<4) | (int)(*end-'0');
+										else if (*end>='a' && *end<='f') valuec = (valuec<<4) | (int)(*end-'a'+10);
+										else if (*end>='A' && *end<='F') valuec = (valuec<<4) | (int)(*end-'A'+10);
+										else break;
+										
+										end++; todo--;
+									}
+								}
+								else
+								{
+									// &#DD;
+									while (*end && *end>='0' && *end<='9' && todo>0)
+									{
+										valuec = valuec * 10 + (int)(*end-'0');
+										end++; todo--;
+									}
+								}
+
+								if (!*end || todo==0)			{ free(copy); ERROROUT0("Attribute value ended while in open character reference entity", startb); }
+								if (startb==end || *end!=';')	{ free(copy); ERROROUT0("Invalid character reference entity", startb); }
+
+								emitUnicode(startb, valuec, dst);
+								startb = end+1; todo--;
+								continue;
+							}
+							else
+							{
+								free(copy); ERROROUT0("Unknown entity", startb);
+							}
+						}
+						
+						if (*startb==L'\n' || *startb==L'\t')
+						{
+							*dst++ = ' ';
+							*startb++;
+						}
+						else if (*startb==L'<') //  || *startb==L'>')  ">" is allowed (W3C)
+						{
+							ERROROUT0("Invalid character in attribute value", startb);
+						}
+						else
+						{
+							*dst++ = *startb++;
+						}
+						todo--;
+					}
+
+					value = PyUnicode_FromStringAndSize(copy, (int)(dst-copy));
+					free(copy);
+				}
+				
 				// set the attribute key: value
 				PyDict_SetItem(attr, key, value);
 
@@ -575,7 +632,7 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 			// create child, recursively fill, append and continue
 			res2 = PyTuple_New(TUPLE_SIZE);
 		
-			PyTuple_SetItem(res2, 0, PyUnicode_FromWideChar(tag, lentag));
+			PyTuple_SetItem(res2, 0, PyUnicode_FromStringAndSize(tag, lentag));
 			if (attr==NULL)
 			{
 				Py_INCREF(Py_None);
@@ -607,24 +664,24 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 					return NULL;
 
 				if (!*xml || *xml!='<')
-					ERROROUT1("Expected closing tag, last open tag was \"%s\"", xml, wcs2utf8(tag, lentag));
+					ERROROUT1("Expected closing tag, last open tag was \"%s\"", xml, strndup(tag, lentag));
 				xml++;
 
 				// this can actually never happen since parse_recurse only exits when its at the end or it find "</"
 				if (!*xml || *xml!='/')
-					ERROROUT1("Expected closing tag, last open tag was \"%s\"", xml, wcs2utf8(tag, lentag));
+					ERROROUT1("Expected closing tag, last open tag was \"%s\"", xml, strndup(tag, lentag));
 				xml++;
 
 				start = xml;
-				while (*xml && ((*xml>='a' && *xml<='z') || (*xml>='A' && *xml<='Z') || (start!=xml && ((*xml>='0' && *xml<='9') || *xml==':' || *xml=='_'))))
+				while (*xml && ((*xml>='a' && *xml<='z') || (*xml>='A' && *xml<='Z') || (start!=xml && ((*xml>='0' && *xml<='9') || *xml==':' || *xml=='_' || *xml=='-'))))
 					xml++;
 				int len = (int)(xml-start);
 
 				if (len==0)
-					ERROROUT1("Ending tag for \"%s\" expected, got nothing", xml, wcs2utf8(tag, lentag));
+					ERROROUT1("Ending tag for \"%s\" expected, got nothing", xml, strndup(tag, lentag));
 
-				if (len!=lentag || wcsncmp(start, tag, len)!=0)
-					ERROROUT2("Mismatched end tag: expected </%s>, got </%s>", start, wcs2utf8(tag, lentag), wcs2utf8(start, len));
+				if (len!=lentag || strncmp(start, tag, len)!=0)
+					ERROROUT2("Mismatched end tag: expected </%s>, got </%s>", start, strndup(tag, lentag), strndup(start, len));
 
 				if (!*xml || *xml!='>')
 					ERROROUT0("XML ended unexpectedly in a closing tag", xml);
@@ -693,10 +750,10 @@ void showRefCnts(PyObject *o, int depth)
 	}
 	else if (PyUnicode_Check(o))
 	{
-		char *debug = (char *)malloc((PyUnicode_GetSize(o)+1) * sizeof(wchar_t));
+		char *debug = (char *)malloc((PyUnicode_GET_LENGTH(o)+1) * sizeof(char));
 		char *start = debug;
-		wchar_t* s = (wchar_t*)PyUnicode_AS_UNICODE(o);
-		for (i=0; i<PyUnicode_GetSize(o); i++)
+		char* s = (char*)PyUnicode_AS_UNICODE(o);
+		for (i=0; i<PyUnicode_GET_LENGTH(o); i++)
 		{
 			if ((int)*s < 32)
 			{
@@ -704,12 +761,10 @@ void showRefCnts(PyObject *o, int depth)
 				*debug++ = '.';
 			}
 			else
-				WCHAR2UTF8(s, debug);
+				*debug++ = *s++;
 		}
-//			*(debug+i) = *(s+i)>=32 ? (*(s+i)) : '.';
 		*debug = 0;
-//		*(debug+PyUnicode_GetSize(o)) = 0;
-		printf("%-8i%*sunicode len=%i refcnt=%i value=%s addr=%016lx\n", (int)o->ob_refcnt, depth*4, "", (int)PyUnicode_GetSize(o), (int)o->ob_refcnt, start, (long)o);
+		printf("%-8i%*sunicode len=%i refcnt=%i value=%s addr=%016lx\n", (int)o->ob_refcnt, depth*4, "", (int)PyUnicode_GET_LENGTH(o), (int)o->ob_refcnt, start, (long)o);
 	}
 	else
 	{
@@ -720,20 +775,21 @@ void showRefCnts(PyObject *o, int depth)
 
 static PyObject *parse(PyObject *self, PyObject *args)
 {
-	wchar_t					*xml = NULL;
+	char					*xml = NULL;
 	int						pos = 0;
 	int						flags = 0;
 	struct selfStruct 		sself;
 
 
-	if (!PyArg_ParseTuple(args, "u|i", &xml, &flags))
+	if (!PyArg_ParseTuple(args, "s|i", &xml, &flags))
 		return NULL;
 
 	sself.expandEmpty = (flags & FLAG_EXPANDEMPTY) ? 1 : 0;
 	sself.returnComments = (flags & FLAG_RETURNCOMMENTS) ? 1 : 0;
 	sself.returnPI = (flags & FLAG_RETURNPI) ? 1 : 0;
+	sself.ignoreEntities = (flags & FLAG_IGNOREENTITIES) ? 1 : 0;
 
-	wchar_t* start = xml;
+	char* start = xml;
 
 	PyObject *res = PyTuple_New(TUPLE_SIZE);
 	Py_INCREF(Py_None);
@@ -796,8 +852,6 @@ static PyMethodDef speedyxml_methods[] = {
     {NULL, NULL}
 };
 
-#if PY_MAJOR_VERSION >= 3
-
 static int speedyxml_traverse(PyObject *m, visitproc visit, void *arg) {
     Py_VISIT(GETSTATE(m)->error);
     return 0;
@@ -820,30 +874,18 @@ static struct PyModuleDef moduledef = {
         NULL
 };
 
-#define INITERROR return NULL
-
 PyObject *PyInit_speedyxml(void)
-
-#else
-#define INITERROR return
-
-void initspeedyxml(void)
-#endif
 {
-#if PY_MAJOR_VERSION >= 3
     PyObject *module = PyModule_Create(&moduledef);
-#else
-    PyObject *module = Py_InitModule("speedyxml", speedyxml_methods);
-#endif
 
     if (module == NULL)
-        INITERROR;
+		return NULL;
     struct module_state *st = GETSTATE(module);
 
     st->error = PyErr_NewException("speedyxml.XMLParseException", NULL, NULL);
     if (st->error == NULL) {
         Py_DECREF(module);
-        INITERROR;
+		return NULL;
     }
 	
 	PyObject *d = PyModule_GetDict(module);
@@ -852,11 +894,10 @@ void initspeedyxml(void)
 	PyDict_SetItemString(d, "FLAG_EXPANDEMPTY", PyLong_FromLong(FLAG_EXPANDEMPTY));
 	PyDict_SetItemString(d, "FLAG_RETURNCOMMENTS", PyLong_FromLong(FLAG_RETURNCOMMENTS));
 	PyDict_SetItemString(d, "FLAG_RETURNPI", PyLong_FromLong(FLAG_RETURNPI));
+	PyDict_SetItemString(d, "FLAG_IGNOREENTITIES", PyLong_FromLong(FLAG_IGNOREENTITIES));
 
 	PyDict_SetItemString(d, "TAG_COMMENT", PyUnicode_FromString("<!--"));
 	PyDict_SetItemString(d, "TAG_PI", PyUnicode_FromString("<?"));
 
-#if PY_MAJOR_VERSION >= 3
     return module;
-#endif
 }

@@ -1,0 +1,5 @@
+(I00
+S'Invalid character in attribute value\n\nLine 1, column 17:\n<xml attribute="<>" />\n                ^'
+p0
+tp1
+.
