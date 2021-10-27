@@ -1,0 +1,5 @@
+(I00
+S'Repeated attribute: a1\n\nLine 1, column 16:\n<xml a1="test" a1="more" />\n               ^'
+p0
+tp1
+.

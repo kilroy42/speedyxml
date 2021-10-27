@@ -1,0 +1,5 @@
+(I00
+S'Found -- within comment, start of comment was here\n\nLine 1, column 6:\n<xml><!-- -- --></xml>\n     ^'
+p0
+tp1
+.

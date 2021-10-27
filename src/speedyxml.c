@@ -29,7 +29,7 @@ static struct module_state _state;
 	char 					*lines = searchPosition(self->start, POS, &x, &y);\
 	PyErr_Format(st->error, S "\n\nLine %i, column %i:\n%s", y, x, lines);\
 	free(lines);\
-	Py_XDECREF(children); Py_XDECREF(key); Py_XDECREF(res2); Py_XDECREF(attr); return NULL;\
+	Py_XDECREF(children); Py_XDECREF(key); Py_XDECREF(value); Py_XDECREF(res2); Py_XDECREF(attr); return NULL;\
 }
 
 #define ERROROUT1(S, POS, S2)\
@@ -39,7 +39,7 @@ static struct module_state _state;
 	char 					*lines = searchPosition(self->start, POS, &x, &y);\
 	PyErr_Format(st->error, S "\n\nLine %i, column %i:\n%s", S2, y, x, lines);\
 	free(lines); free(S2);\
-	Py_XDECREF(children); Py_XDECREF(key); Py_XDECREF(res2); Py_XDECREF(attr); return NULL;\
+	Py_XDECREF(children); Py_XDECREF(key); Py_XDECREF(value); Py_XDECREF(res2); Py_XDECREF(attr); return NULL;\
 }
 
 #define ERROROUT2(S, POS, S2, S3)\
@@ -49,7 +49,7 @@ static struct module_state _state;
 	char 					*lines = searchPosition(self->start, POS, &x, &y);\
 	PyErr_Format(st->error, S "\n\nLine %i, column %i:\n%s", S2, S3, y, x, lines);\
 	free(lines); free(S2); free(S3);\
-	Py_XDECREF(children); Py_XDECREF(key); Py_XDECREF(res2); Py_XDECREF(attr); return NULL;\
+	Py_XDECREF(children); Py_XDECREF(key); Py_XDECREF(value); Py_XDECREF(res2); Py_XDECREF(attr); return NULL;\
 }
 
 #define ERROROUTM(S)\
@@ -63,6 +63,7 @@ static struct module_state _state;
 struct selfStruct {
 	PyObject	*self;
 	char		*start;
+	int			ExpandEmpty;
 };
 
 char *searchPosition(char *start, char *xml, int *x, int *y)
@@ -98,7 +99,7 @@ char *searchPosition(char *start, char *xml, int *x, int *y)
 	while (*end && *end!='\r' && *end!='\n')
 		end++;
 	int len = (int)(end-line);
-
+	
 	char *output = malloc(len + 1 + *x + 1);
 	char *res = output;
 
@@ -115,6 +116,7 @@ char *parse_recurse(struct selfStruct *self, char *xml, PyObject *res, int depth
 {
 	PyObject *children = NULL;
 	PyObject *key = NULL;
+	PyObject *value = NULL;
 	PyObject *res2 = NULL;
 	PyObject *attr = NULL;
 
@@ -128,7 +130,6 @@ char *parse_recurse(struct selfStruct *self, char *xml, PyObject *res, int depth
 	int lentag = 0;
 
 	int lastWasString = 0;
-
 
 	while (1)
 	{
@@ -184,7 +185,7 @@ char *parse_recurse(struct selfStruct *self, char *xml, PyObject *res, int depth
 							start+= 2;
 							todo-= 2;
 
-							unsigned int value = 0;
+							unsigned int valuec = 0;
 								
 							end = start;
 							if (*end=='x')
@@ -196,11 +197,11 @@ char *parse_recurse(struct selfStruct *self, char *xml, PyObject *res, int depth
 								while (*end && todo>0)
 								{
 									if (*end>='0' && *end<='9')
-										value = (value<<4) | (int)(*end-'0');
+										valuec = (valuec<<4) | (int)(*end-'0');
 									else if (*end>='a' && *end<='f')
-										value = (value<<4) | (int)(*end-'a'+10);
+										valuec = (valuec<<4) | (int)(*end-'a'+10);
 									else if (*end>='A' && *end<='F')
-										value = (value<<4) | (int)(*end-'A'+10);
+										valuec = (valuec<<4) | (int)(*end-'A'+10);
 									else
 										break;
 
@@ -213,7 +214,7 @@ char *parse_recurse(struct selfStruct *self, char *xml, PyObject *res, int depth
 								// &#DD;
 								while (*end && *end>='0' && *end<='9' && todo>0)
 								{
-									value = value * 10 + (int)(*end-'0');
+									valuec = valuec * 10 + (int)(*end-'0');
 									end++;
 									todo--;
 								}
@@ -226,31 +227,31 @@ char *parse_recurse(struct selfStruct *self, char *xml, PyObject *res, int depth
 								ERROROUT0("Invalid character reference entity", start);
 
 							// convert unicode value to utf8 chars
-							if (value < 0x0080)
+							if (valuec < 0x0080)
 							{
-								*dst++ = (unsigned char)value;
+								*dst++ = (unsigned char)valuec;
 							}
-							else if (value < 0x0800)
+							else if (valuec < 0x0800)
 							{
-								*dst++ = 0xc0 | (value >> 6);
-								*dst++ = 0x80 | (value & 0x3f);
+								*dst++ = 0xc0 | (valuec >> 6);
+								*dst++ = 0x80 | (valuec & 0x3f);
 							}
-							else if (value >= 0xd800 && value <= 0xdfff)
+							else if (valuec >= 0xd800 && valuec <= 0xdfff)
                             {
 								ERROROUT0("Invalid UTF-8 codepoint found", start-2);
 							}
-							else if (value < 0x10000)
+							else if (valuec < 0x10000)
 							{
-								*dst++ = 0xe0 |  (value >> 12);
-								*dst++ = 0x80 | ((value >> 6 ) & 0x3f );
-								*dst++ = 0x80 |  (value        & 0x3f );
+								*dst++ = 0xe0 |  (valuec >> 12);
+								*dst++ = 0x80 | ((valuec >> 6 ) & 0x3f );
+								*dst++ = 0x80 |  (valuec        & 0x3f );
 							}
-							else if (value < 0x110000)
+							else if (valuec < 0x110000)
 							{
-								*dst++ = 0xf0 |  (value >> 18);
-								*dst++ = 0x80 | ((value >> 12) & 0x3f);
-								*dst++ = 0x80 | ((value >>  6) & 0x3f);
-								*dst++ = 0x80 | (value         & 0x3f);
+								*dst++ = 0xf0 |  (valuec >> 18);
+								*dst++ = 0x80 | ((valuec >> 12) & 0x3f);
+								*dst++ = 0x80 | ((valuec >>  6) & 0x3f);
+								*dst++ = 0x80 | (valuec         & 0x3f);
 							}
 							else
                             {
@@ -291,8 +292,7 @@ char *parse_recurse(struct selfStruct *self, char *xml, PyObject *res, int depth
 				lastWasString = 1;
 			}
 
-			Py_DECREF(res2);
-			res2 = NULL;
+			Py_DECREF(res2); res2 = NULL;
 		}
 	
 		// end of XML? bail out
@@ -344,7 +344,7 @@ char *parse_recurse(struct selfStruct *self, char *xml, PyObject *res, int depth
 				lastWasString = 1;
 			}
 
-			Py_DECREF(res2);
+			Py_DECREF(res2); res2 = NULL;
 
 			xml+= 3;
 		}
@@ -374,7 +374,10 @@ char *parse_recurse(struct selfStruct *self, char *xml, PyObject *res, int depth
 			tag = start;
 			lentag = (int)(xml-start);
 
-			attr = NULL;
+			if (self->ExpandEmpty)
+				attr = PyDict_New();
+			else
+				attr = NULL;
 
 			int closed = 0;
 			while (1)
@@ -385,7 +388,7 @@ char *parse_recurse(struct selfStruct *self, char *xml, PyObject *res, int depth
 					xml++;
 
 				if (!*xml)
-					ERROROUT1("End of XML and some opened tag still open. Last open tag was \"%s\"", xml, strndup(tag, lentag));
+					ERROROUT1("End of XML and we are still inside a tag declaration. Last open tag was \"%s\"", xml, strndup(tag, lentag));
 
 				// tag is closing, content coming?
 				if (*xml=='>')
@@ -450,8 +453,14 @@ char *parse_recurse(struct selfStruct *self, char *xml, PyObject *res, int depth
 				if (PyDict_Contains(attr, key))
 					ERROROUT1("Repeated attribute: %s", start, strndup(start, len));
 
+				value = PyUnicode_FromStringAndSize(startb, lenb);
+
 				// set the attribute key: value
-				PyDict_SetItem(attr, key, PyUnicode_FromStringAndSize(startb, lenb));
+				PyDict_SetItem(attr, key, value);
+
+				// clean up
+				Py_DECREF(key); key = NULL;
+				Py_DECREF(value); value = NULL;
 			}
 
 			// create child, recursively fill, append and continue
@@ -474,8 +483,13 @@ char *parse_recurse(struct selfStruct *self, char *xml, PyObject *res, int depth
 
 			if (closed)
 			{
-				Py_INCREF(Py_None);
-				PyTuple_SetItem(res2, 2, Py_None);
+				if (self->ExpandEmpty)
+					PyTuple_SetItem(res2, 2, PyList_New(0));
+				else
+				{
+					Py_INCREF(Py_None);
+					PyTuple_SetItem(res2, 2, Py_None);
+				}
 			}
 			else
 			{
@@ -493,7 +507,7 @@ char *parse_recurse(struct selfStruct *self, char *xml, PyObject *res, int depth
 				xml++;
 
 				start = xml;
-				while (*xml && ((*xml>='a' && *xml<='z') || (*xml>='A' && *xml<='Z') || (start!=xml && (*xml>='0' && *xml<='9'))))
+				while (*xml && ((*xml>='a' && *xml<='z') || (*xml>='A' && *xml<='Z') || (start!=xml && ((*xml>='0' && *xml<='9') || *xml==':' || *xml=='_'))))
 					xml++;
 				int len = (int)(xml-start);
 
@@ -512,8 +526,7 @@ char *parse_recurse(struct selfStruct *self, char *xml, PyObject *res, int depth
 				children = PyList_New(0);
 			PyList_Append(children, res2);
 			
-			Py_DECREF(res2);
-			res2 = NULL;
+			Py_DECREF(res2); res2 = NULL;
 		}
 	}
 
@@ -586,15 +599,26 @@ void showRefCnts(PyObject *o, int depth)
 }
 #endif
 
-static PyObject *parse(PyObject *self, PyObject *args)
+static PyObject *parse(PyObject *self, PyObject *args, PyObject *kwargs)
 {
 	char					*xml = NULL;
 	int						pos = 0;
 	struct selfStruct 		sself;
 
-
 	if (!PyArg_ParseTuple(args, "s", &xml))
 		return NULL;
+
+	sself.ExpandEmpty = 0;
+	PyObject *ExpandEmpty = PyDict_GetItemString(kwargs, "ExpandEmpty");
+	if (ExpandEmpty)
+	{
+		PyObject *ExpandEmptyNumber = PyNumber_Long(ExpandEmpty);
+		if (ExpandEmptyNumber)
+		{
+			sself.ExpandEmpty = PyLong_AsLong(ExpandEmptyNumber);
+			Py_DECREF(ExpandEmptyNumber);
+		}
+	}
 
 	char* start = xml;
 
@@ -631,7 +655,7 @@ static PyObject *parse(PyObject *self, PyObject *args)
 		if (PyTuple_Check(child))
 		{
 			if (found!=NULL)
-				ERROROUTM("Document contains multiple elements");
+				ERROROUTM("Document contains multiple root elements");
 			found = child;
 		}
 		else if (PyUnicode_Check(child))
@@ -655,7 +679,7 @@ static PyObject *parse(PyObject *self, PyObject *args)
 }
 
 static PyMethodDef speedyxml_methods[] = {
-	{"parse",		(PyCFunction)parse,			METH_VARARGS,		NULL},
+	{"parse",		(PyCFunction)parse,			METH_VARARGS | METH_KEYWORDS,		NULL},
     {NULL, NULL}
 };
 

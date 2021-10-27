@@ -1,0 +1,11 @@
+<?head?>
+<?more head?>
+<body>
+	<child/>
+	<child></child>
+	<child>a</child>
+	a
+	<!-- comment -->
+	b
+</body>
+<!-- end -->

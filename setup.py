@@ -1,10 +1,15 @@
 #!/usr/bin/env python
 
-from distutils.core import setup, Extension
+from setuptools import setup
+
+from distutils.core import Extension
+
+
+#from distutils.core import setup, Extension
 
 setup(
 	name				=	'speedyxml',
-	version				=	'0.1',
+	version				=	'0.2',
 	description			=	'Speedy XML parser for Python',
 	author				=	'kilroy',
 	author_email		=	'kilroy@uni-koblenz.de',
@@ -13,6 +18,7 @@ setup(
 	ext_modules			=	[
 		Extension('speedyxml', ['src/speedyxml.c'])
 	],
+	test_suite			=	'tests.test.suite',
 	classifiers			=	[
 		'Development Status :: 4 - Beta',
 		'Intended Audience :: Developers',

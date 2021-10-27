@@ -1,0 +1,25 @@
+Usage is fairly straightforward:
+
+	import speedyxml
+	xml = speedyxml.parse('<xml><test this="now" /></xml>')
+
+Will result in:
+
+	(
+		u'xml', 
+		None, 
+		[
+			(
+				u'test', 
+				{u'this': u'now'}, 
+				None
+			)
+		]
+	)
+
+So basically its:
+
+	(nodeName, attributes, children)
+
+
+If you want empty attributes and children to be {} and [] instead of None, use ExpandEmpty=1

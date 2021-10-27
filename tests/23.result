@@ -1,0 +1,5 @@
+(I00
+S'Attributes need a space as divider (or invalid tag name)\n\nLine 1, column 11:\n<xml a1=""a2=""/>\n          ^'
+p0
+tp1
+.
