@@ -1,5 +1,9 @@
-(I00
-S'Invalid UTF-8 codepoint found\n\nLine 1, column 7:\n<xml>&#xd800;</xml>\n      ^'
+(I01
+(Vxml
 p0
-tp1
+N(lp1
+V\ud800
+p2
+atp3
+tp4
 .

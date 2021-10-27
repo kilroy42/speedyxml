@@ -21,5 +21,26 @@ So basically its:
 
 	(nodeName, attributes, children)
 
+Plus some options (second argument to parse)
 
-If you want empty attributes and children to be {} and [] instead of None, use ExpandEmpty=1
+	FLAG_EXPANDEMPTY
+
+		If you want empty attributes and children to be {} and [] instead of None, use this
+
+	FLAG_RETURNCOMMENTS
+
+		Return comments as:
+
+		(TAG_COMMENT, None, u' comment ')
+
+	FLAG_RETURNPI
+
+		Returns processing instructions as:
+
+		(TAG_PI', {u'name': u'php'}, u'phpinfo();')
+
+And one exception:
+
+	XMLParseException
+
+

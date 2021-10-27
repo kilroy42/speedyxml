@@ -7,8 +7,8 @@ from speedyxml import parse, XMLParseException
 
 import codecs, glob, pickle, os, sys, unittest
 
-def writeResults():
-	for ffn in sorted(glob.glob('*.test')):
+def writeResults(fns):
+	for ffn in sorted(fns):
 		(path, fn) = os.path.split(ffn)
 		resultFn = os.path.join(path, fn.rsplit('.', 1)[0]) + '.result'
 
@@ -49,5 +49,9 @@ def suite():
 	return alltests
 
 if __name__=='__main__':
-	runner = unittest.TextTestRunner()
-	runner.run(suite())
+
+	if 'write' in sys.argv[1:]:
+		writeResults(sys.argv[2:])
+	else:
+		runner = unittest.TextTestRunner()
+		runner.run(suite())
