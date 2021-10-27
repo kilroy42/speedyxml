@@ -1,5 +1,9 @@
-(I00
-S'Found ">" in a text node\n\nLine 1, column 7:\n<text>></text>\n      ^'
+(I01
+(Vtext
 p0
-tp1
+N(lp1
+V>
+p2
+atp3
+tp4
 .

@@ -208,8 +208,9 @@ wchar_t *parse_recurse(struct selfStruct *self, wchar_t *xml, PyObject *res, int
 		xml = wcschrnul(xml, L'<');
 
 		// this is only needed to be XML standard compatible. Other XML parsers accept ">" in a text node (e.g. Reportlab pyRXP)
-		if (startb!=NULL && startb<xml)
-			ERROROUT0("Found \">\" in a text node", startb)
+		// FIXED: ">" IS allowed in a text node (W3C)
+//		if (startb!=NULL && startb<xml)
+//			ERROROUT0("Found \">\" in a text node", startb)
 
 		// we have a text node, add it
 		if (xml != start)
