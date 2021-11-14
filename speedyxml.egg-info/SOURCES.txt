@@ -1,4 +1,6 @@
+PKG-INFO
 README
+setup.cfg
 setup.py
 speedyxml.egg-info/PKG-INFO
 speedyxml.egg-info/SOURCES.txt
