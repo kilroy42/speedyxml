@@ -2,11 +2,13 @@ PKG-INFO
 README
 setup.cfg
 setup.py
+speedyxml.egg-info/.SOURCES.txt.un~
 speedyxml.egg-info/PKG-INFO
 speedyxml.egg-info/SOURCES.txt
 speedyxml.egg-info/dependency_links.txt
 speedyxml.egg-info/top_level.txt
 src/speedyxml.c
+test/1.result
 test/1.test
 test/10.result
 test/10.test
@@ -62,6 +64,8 @@ test/33.result
 test/33.test
 test/34.result
 test/34.test
+test/35.result
+test/35.test
 test/4.result
 test/4.test
 test/5.result
