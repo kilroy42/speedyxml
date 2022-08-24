@@ -39,8 +39,12 @@ class Test(unittest.TestCase):
 			else:
 				res = (True, res)
 
-			with open(resultFn, 'rb') as F:
-				res2 = pickle.load(F)
+			try:
+				with open(resultFn, 'rb') as F:
+					res2 = pickle.load(F)
+			except:
+				print(res)
+				raise
 
 			self.assertEqual(res, res2)
 

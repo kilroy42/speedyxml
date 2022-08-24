@@ -4,9 +4,12 @@ from setuptools import setup
 
 from distutils.core import Extension
 
+with open("README", "r", encoding="utf-8") as fh:
+	long_description = fh.read()
+
 setup(
 	name				=	'speedyxml',
-	version				=	'0.4.0.0',
+	version				=	'0.4.0.2',
 	description			=	'Speedy XML parser for Python',
 	author				=	'kilroy',
 	author_email		=	'kilroy@81818.de',
@@ -27,4 +30,6 @@ setup(
 		'Topic :: Text Processing :: Markup :: XML',
 		'License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)',
 	],
+    long_description=long_description,
+    long_description_content_type='text/plain',
 )

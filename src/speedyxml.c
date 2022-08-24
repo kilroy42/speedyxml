@@ -454,7 +454,7 @@ char *parse_recurse(struct selfStruct *self, char *xml, PyObject *res, int depth
 			{
 				// consume spaces
 				char *beforeSpaces = xml;
-				while (*xml==' ' || *xml=='\n' || *xml=='\r' || *xml=='\t')
+				while (*xml && (*xml==' ' || *xml=='\n' || *xml=='\r' || *xml=='\t'))
 					xml++;
 
 				if (!*xml)
@@ -500,14 +500,14 @@ char *parse_recurse(struct selfStruct *self, char *xml, PyObject *res, int depth
 					ERROROUT0("Expected attribute, found nothing", xml);
 
 				// consume white space
-				while (*xml==' ' || *xml=='\n' || *xml=='\r' || *xml=='\t')
+				while (*xml && (*xml==' ' || *xml=='\n' || *xml=='\r' || *xml=='\t'))
 					xml++;
 
 				if (!*xml || (*xml++ != '='))
 					ERROROUT0("Expected attribute= but \"=\" was missing", xml-1);
 
 				// consume white space
-				while (*xml==' ' || *xml=='\n' || *xml=='\r' || *xml=='\t')
+				while (*xml && (*xml==' ' || *xml=='\n' || *xml=='\r' || *xml=='\t'))
 					xml++;
 
 				if (!*xml || (*xml != '"' && *xml != '\''))
@@ -682,6 +682,10 @@ char *parse_recurse(struct selfStruct *self, char *xml, PyObject *res, int depth
 
 				if (len!=lentag || strncmp(start, tag, len)!=0)
 					ERROROUT2("Mismatched end tag: expected </%s>, got </%s>", start, strndup(tag, lentag), strndup(start, len));
+
+				// consume white space
+				while (*xml && (*xml==' ' || *xml=='\n' || *xml=='\r' || *xml=='\t'))
+					xml++;
 
 				if (!*xml || *xml!='>')
 					ERROROUT0("XML ended unexpectedly in a closing tag", xml);
