@@ -8,6 +8,7 @@ speedyxml.egg-info/SOURCES.txt
 speedyxml.egg-info/dependency_links.txt
 speedyxml.egg-info/top_level.txt
 src/speedyxml.c
+src/speedyxml.pyi
 test/1.result
 test/1.test
 test/10.result
