@@ -1,3 +1,4 @@
+MANIFEST.in
 PKG-INFO
 README
 setup.cfg
