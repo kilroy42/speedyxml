@@ -9,7 +9,7 @@ with open("README", "r", encoding="utf-8") as fh:
 
 setup(
 	name				=	'speedyxml',
-	version				=	'0.4.0.12',
+	version				=	'0.4.0.13',
 	description			=	'Speedy XML parser for Python',
 	author				=	'kilroy',
 	author_email		=	'kilroy@81818.de',
@@ -18,7 +18,7 @@ setup(
 	ext_modules			=	[
         Extension('speedyxml', ['src/speedyxml.c'])
 	],
-    data_files=[('', ['src/speedyxml.pyi'])],  # Install alongside the .so file
+    data_files=[('speedyxml', ['src/speedyxml.pyi'])],  # Install alongside the .so file
     include_package_data=True,
 	test_suite			=	'test.test.suite',
 	classifiers			=	[
