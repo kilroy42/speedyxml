@@ -9,16 +9,18 @@ with open("README", "r", encoding="utf-8") as fh:
 
 setup(
 	name				=	'speedyxml',
-	version				=	'0.4.0.6',
+	version				=	'0.4.0.7',
 	description			=	'Speedy XML parser for Python',
 	author				=	'kilroy',
 	author_email		=	'kilroy@81818.de',
 	license				=	'LGPL',
 	py_modules			=	[],
 	ext_modules			=	[
-		Extension('speedyxml', ['src/speedyxml.c'])
+        Extension('speedyxml', ['src/speedyxml.c'])
 	],
-    data_files          =   [('.', ['src/speedyxml.pyi'])],
+    include_package_data=   False,
+    package_dir         =   {'': 'src'},
+    package_data        =   {'': ['speedyxml.pyi']},
 	test_suite			=	'test.test.suite',
 	classifiers			=	[
 		'Development Status :: 4 - Beta',
