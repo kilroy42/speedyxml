@@ -2,7 +2,6 @@ PKG-INFO
 README
 setup.cfg
 setup.py
-speedyxml.egg-info/.SOURCES.txt.un~
 speedyxml.egg-info/PKG-INFO
 speedyxml.egg-info/SOURCES.txt
 speedyxml.egg-info/dependency_links.txt
