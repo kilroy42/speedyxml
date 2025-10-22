@@ -9,7 +9,7 @@ with open("README", "r", encoding="utf-8") as fh:
 
 setup(
 	name				=	'speedyxml',
-	version				=	'0.4.0.4',
+	version				=	'0.4.0.5',
 	description			=	'Speedy XML parser for Python',
 	author				=	'kilroy',
 	author_email		=	'kilroy@81818.de',
