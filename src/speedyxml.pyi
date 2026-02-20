@@ -3,7 +3,7 @@ from typing import TypeAlias, Union
 XML: TypeAlias = tuple[
     str,
     dict[str, str] | None,
-    list[Union['XML', str]],
+    list[Union['XML', str]] | None,
 ]
 
 __all__ = [

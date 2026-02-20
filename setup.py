@@ -30,7 +30,7 @@ class CustomInstallCommand(install):
 
 setup(
 	name				=	'speedyxml',
-	version				=	'0.4.0.15',
+	version				=	'0.4.0.16',
 	description			=	'Speedy XML parser for Python',
 	author				=	'kilroy',
 	author_email		=	'kilroy@81818.de',
