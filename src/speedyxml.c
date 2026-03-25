@@ -899,6 +899,7 @@ PyObject *PyInit_speedyxml(void)
 	PyDict_SetItemString(d, "FLAG_RETURNCOMMENTS", PyLong_FromLong(FLAG_RETURNCOMMENTS));
 	PyDict_SetItemString(d, "FLAG_RETURNPI", PyLong_FromLong(FLAG_RETURNPI));
 	PyDict_SetItemString(d, "FLAG_IGNOREENTITIES", PyLong_FromLong(FLAG_IGNOREENTITIES));
+	PyDict_SetItemString(d, "FLAG_RETURNPOSITIONS", PyLong_FromLong(FLAG_RETURNPOSITIONS));
 
 	PyDict_SetItemString(d, "TAG_COMMENT", PyUnicode_FromString("<!--"));
 	PyDict_SetItemString(d, "TAG_PI", PyUnicode_FromString("<?"));
