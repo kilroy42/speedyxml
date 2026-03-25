@@ -6,16 +6,9 @@ struct module_state {
     PyObject *error;
 };
 
-//#define COMPATIBLE
 //#define DEBUG_REF_CNTS
 #define JOINSTRINGS
 //#define JOINCDATA
-
-#ifdef COMPATIBLE
-#define TUPLE_SIZE 4
-#else
-#define TUPLE_SIZE 3
-#endif
 
 #define GETSTATE(m) ((struct module_state*)PyModule_GetState(m))
 
@@ -101,13 +94,16 @@ char *my_strnchr(char *in, char ch, int n)
 #define FLAG_RETURNCOMMENTS 2
 #define FLAG_RETURNPI 4
 #define FLAG_IGNOREENTITIES 8
+#define FLAG_RETURNPOSITIONS 16
 
 struct selfStruct {
 	PyObject	*self;
 	char		*start;
+    int         tupleSize;
 	int			expandEmpty;
 	int			returnComments;
 	int			returnPI;
+    int         returnPositions;
 	int			ignoreEntities;
 };
 
@@ -324,7 +320,7 @@ char *parse_recurse(struct selfStruct *self, char *xml, PyObject *res, int depth
 			if (self->returnComments && depth>0)
 			{
 				PyObject* tmp;
-				res2 = PyTuple_New(TUPLE_SIZE);
+				res2 = PyTuple_New(self->tupleSize);
 
 				tmp = PyUnicode_FromString("<!--");
 				PyTuple_SetItem(res2, 0, tmp);
@@ -332,10 +328,9 @@ char *parse_recurse(struct selfStruct *self, char *xml, PyObject *res, int depth
 				Py_INCREF(Py_None);
 				PyTuple_SetItem(res2, 1, Py_None);
 				PyTuple_SetItem(res2, 2, PyUnicode_FromStringAndSize(start+4, (int)(xml-start)-4));
-#ifdef COMPATIBLE	
-				Py_INCREF(Py_None);
-				PyTuple_SetItem(res2, 3, Py_None);
-#endif
+                if (self->returnPositions) {
+				    PyTuple_SetItem(res2, 3, PyLong_FromLong(start - self->start));
+                }
 				if (children == NULL)
 					children = PyList_New(0);
 
@@ -399,7 +394,7 @@ char *parse_recurse(struct selfStruct *self, char *xml, PyObject *res, int depth
 			
 			if (self->returnPI && depth>0)
 			{
-				res2 = PyTuple_New(TUPLE_SIZE);
+				res2 = PyTuple_New(self->tupleSize);
 
 				PyTuple_SetItem(res2, 0, PyUnicode_FromString("<?"));
 
@@ -414,10 +409,9 @@ char *parse_recurse(struct selfStruct *self, char *xml, PyObject *res, int depth
 					PyTuple_SetItem(res2, 2, PyUnicode_FromStringAndSize(start+lentag+1, (int)(xml-start) - lentag-1));
 				else
 					PyTuple_SetItem(res2, 2, PyUnicode_FromString(""));
-#ifdef COMPATIBLE
-				Py_INCREF(Py_None);
-				PyTuple_SetItem(res2, 3, Py_None);
-#endif
+                if (self->returnPositions) {
+				    PyTuple_SetItem(res2, 3, PyLong_FromLong(start - self->start));
+                }
 				if (children == NULL)
 					children = PyList_New(0);
 				PyList_Append(children, res2);
@@ -630,7 +624,7 @@ char *parse_recurse(struct selfStruct *self, char *xml, PyObject *res, int depth
 			}
 
 			// create child, recursively fill, append and continue
-			res2 = PyTuple_New(TUPLE_SIZE);
+			res2 = PyTuple_New(self->tupleSize);
 		
 			PyTuple_SetItem(res2, 0, PyUnicode_FromStringAndSize(tag, lentag));
 			if (attr==NULL)
@@ -642,10 +636,9 @@ char *parse_recurse(struct selfStruct *self, char *xml, PyObject *res, int depth
 			{
 				PyTuple_SetItem(res2, 1, attr);
 			}
-#ifdef COMPATIBLE
-			Py_INCREF(Py_None);
-			PyTuple_SetItem(res2, 3, Py_None);
-#endif
+            if (self->returnPositions) {
+	    	    PyTuple_SetItem(res2, 3, PyLong_FromLong(tag - self->start - 1));
+            }
 
 			if (closed)
 			{
@@ -790,21 +783,28 @@ static PyObject *parse(PyObject *self, PyObject *args)
 
 	sself.expandEmpty = (flags & FLAG_EXPANDEMPTY) ? 1 : 0;
 	sself.returnComments = (flags & FLAG_RETURNCOMMENTS) ? 1 : 0;
+	sself.returnPositions = (flags & FLAG_RETURNPOSITIONS) ? 1 : 0;
 	sself.returnPI = (flags & FLAG_RETURNPI) ? 1 : 0;
 	sself.ignoreEntities = (flags & FLAG_IGNOREENTITIES) ? 1 : 0;
 
+    
+    if (sself.returnPositions) {
+        sself.tupleSize = 4;
+    } else {
+        sself.tupleSize = 3;
+    }
+
 	char* start = xml;
 
-	PyObject *res = PyTuple_New(TUPLE_SIZE);
+	PyObject *res = PyTuple_New(sself.tupleSize);
 	Py_INCREF(Py_None);
 	PyTuple_SetItem(res, 0, Py_None);
 	Py_INCREF(Py_None);
 	PyTuple_SetItem(res, 1, Py_None);
 
-#ifdef COMPATIBLE	
-	Py_INCREF(Py_None);
-	PyTuple_SetItem(res, 3, Py_None);
-#endif
+    if (sself.returnPositions) {
+        PyTuple_SetItem(res, 3, 0);
+    }
 	
 	sself.start = xml;
 	sself.self = self;

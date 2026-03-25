@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: speedyxml
-Version: 0.4.0.16
+Version: 0.4.1.0
 Summary: Speedy XML parser for Python
 Author: kilroy
 Author-email: kilroy@81818.de
@@ -63,6 +63,10 @@ Plus some options (second argument to parse)
 		Returns processing instructions as:
 
 		(TAG_PI, {u'name': u'php'}, u'phpinfo();')
+
+	FLAG_RETURNPOSITIONS
+
+		return position of tags in fourth entry in tuple
 
 	FLAG_IGNOREENTITIES
 		

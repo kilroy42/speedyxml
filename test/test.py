@@ -3,6 +3,11 @@
 
 from __future__ import unicode_literals
 
+import os
+import sys
+
+sys.path[0:0] = [os.path.abspath(sys.path[0])]
+
 from speedyxml import parse, XMLParseException
 
 import codecs, glob, pickle, os, sys, unittest
